@@ -1,0 +1,72 @@
+### Paso 09 — Desembolso (flujo normal)
+POST http://localhost:3009/api/v1/desembolso/ejecutar
+Content-Type: application/json
+
+{
+  "firmas": { "firmaConcesionarioOk": true },
+  "polizas": { "pagoPolizasOk": true },
+  "credito": { "montoFinanciable": 18000.00 },
+  "cliente": {
+    "cedulaIdentidad": "V-12345678",
+    "cuentaCliente": "0134-0001-12-0012345678"
+  },
+  "vehiculo": { "concesionario": "A" },
+  "concesionario": { "cuentaConcesionario": "0105-0002-81-1081234567" }
+}
+
+###
+
+### Consultar comprobante (reemplaza CET-xxxx con el devuelto arriba)
+GET http://localhost:3009/api/v1/desembolso/CET-A1B2C3D4E5F6
+
+###
+
+### Healthcheck
+GET http://localhost:3009/health
+
+###
+
+### Demo-fallo: Core fuera de línea
+POST http://localhost:3009/api/v1/desembolso/ejecutar
+Content-Type: application/json
+
+{
+  "firmas": { "firmaConcesionarioOk": true },
+  "polizas": { "pagoPolizasOk": true },
+  "credito": { "montoFinanciable": 15000.00 },
+  "cliente": {
+    "cedulaIdentidad": "V-99999999",
+    "cuentaCliente": "FAIL-DEMO-0000"
+  },
+  "vehiculo": { "concesionario": "B" },
+  "concesionario": { "cuentaConcesionario": "0102-0003-71-0071234567" }
+}
+
+###
+
+### Error 422: firmas incompletas
+POST http://localhost:3009/api/v1/desembolso/ejecutar
+Content-Type: application/json
+
+{
+  "firmas": { "firmaConcesionarioOk": false },
+  "polizas": { "pagoPolizasOk": true },
+  "credito": { "montoFinanciable": 18000.00 },
+  "cliente": {
+    "cedulaIdentidad": "V-12345678",
+    "cuentaCliente": "0134-0001-12-0012345678"
+  },
+  "vehiculo": { "concesionario": "A" },
+  "concesionario": { "cuentaConcesionario": "0105-0002-81-1081234567" }
+}
+
+###
+
+### Error 400: campos faltantes
+POST http://localhost:3009/api/v1/desembolso/ejecutar
+Content-Type: application/json
+
+{
+  "credito": { "montoFinanciable": 18000.00 },
+  "cliente": { "cedulaIdentidad": "V-12345678" }
+}

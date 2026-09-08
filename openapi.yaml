@@ -1,0 +1,341 @@
+openapi: "3.0.3"
+info:
+  title: Core Bancario Mock — Paso 09 Desembolso
+  description: >
+    API Mock que simula el Core bancario IBM i/AS400 para el Paso 09 (Desembolso)
+    del Proceso 1 CrediCarro — PoC BOAT Banesco.
+    BAW invoca este servicio desde un único serviceTask (Task_09_Desembolso)
+    que ejecuta las dos operaciones como una transacción atómica.
+    Entregable: Comprobante Electrónico de Transferencia + referencia del Plan de Pagos.
+  version: "1.0.0"
+  contact:
+    name: PoC BOAT Banesco — IBM
+    email: ibm-poc@demo.com
+
+servers:
+  - url: https://mock-core-bancario-baw-paso09.vercel.app
+    description: Servidor Vercel (PoC)
+
+tags:
+  - name: desembolso
+    description: Transacción de desembolso del crédito
+
+paths:
+
+  /api/v1/desembolso/ejecutar:
+    post:
+      tags: [desembolso]
+      summary: Ejecutar desembolso — transacción atómica
+      operationId: ejecutarDesembolso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudDesembolso'
+            example:
+              firmas:
+                firmaConcesionarioOk: true
+              polizas:
+                pagoPolizasOk: true
+              credito:
+                montoFinanciable: 18000.00
+              cliente:
+                cedulaIdentidad: "V-12345678"
+                cuentaCliente: "0134-0001-12-0012345678"
+              vehiculo:
+                concesionario: "A"
+              concesionario:
+                cuentaConcesionario: "0105-0002-81-1081234567"
+      responses:
+        "201":
+          description: Desembolso ejecutado. Comprobante y plan de pagos generados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDesembolso'
+        "400":
+          description: Campos obligatorios del SIPOC faltantes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorCamposFaltantes'
+        "422":
+          description: Precondición fallida — firmas o pólizas incompletas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPrecondicion'
+        "503":
+          description: Core temporalmente no disponible (modo demo-fallo)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorCore'
+
+  /api/v1/desembolso/{comprobante}:
+    get:
+      tags: [desembolso]
+      summary: Consultar comprobante de desembolso
+      operationId: consultarComprobante
+      parameters:
+        - name: comprobante
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Estado del comprobante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoComprobante'
+        "404":
+          description: Comprobante no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorComprobanteNoEncontrado'
+
+  /health:
+    get:
+      tags: [desembolso]
+      summary: Healthcheck
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+
+    SolicitudDesembolso:
+      type: object
+      required: [firmas, polizas, credito, cliente, vehiculo, concesionario]
+      properties:
+        firmas:
+          $ref: '#/components/schemas/DatosFirmas'
+        polizas:
+          $ref: '#/components/schemas/DatosPolizas'
+        credito:
+          $ref: '#/components/schemas/DatosCredito'
+        cliente:
+          $ref: '#/components/schemas/DatosCliente'
+        vehiculo:
+          $ref: '#/components/schemas/DatosVehiculo'
+        concesionario:
+          $ref: '#/components/schemas/DatosConcesionario'
+
+    DatosFirmas:
+      type: object
+      required: [firmaConcesionarioOk]
+      properties:
+        firmaConcesionarioOk:
+          type: boolean
+          description: tw.local.firmas.firmaConcesionarioOk
+          example: true
+
+    DatosPolizas:
+      type: object
+      required: [pagoPolizasOk]
+      properties:
+        pagoPolizasOk:
+          type: boolean
+          description: tw.local.polizas.pagoPolizasOk
+          example: true
+
+    DatosCredito:
+      type: object
+      required: [montoFinanciable]
+      properties:
+        montoFinanciable:
+          type: number
+          format: double
+          description: tw.local.credito.montoFinanciable
+          example: 18000.00
+
+    DatosCliente:
+      type: object
+      required: [cedulaIdentidad, cuentaCliente]
+      properties:
+        cedulaIdentidad:
+          type: string
+          description: tw.local.cliente.cedulaIdentidad
+          example: "V-12345678"
+        cuentaCliente:
+          type: string
+          description: tw.local.cliente.cuentaCliente
+          example: "0134-0001-12-0012345678"
+
+    DatosVehiculo:
+      type: object
+      required: [concesionario]
+      properties:
+        concesionario:
+          type: string
+          description: tw.local.vehiculo.concesionario — A, B o C
+          example: "A"
+
+    DatosConcesionario:
+      type: object
+      required: [cuentaConcesionario]
+      properties:
+        cuentaConcesionario:
+          type: string
+          description: tw.local.concesionario.cuentaConcesionario
+          example: "0105-0002-81-1081234567"
+
+    RespuestaDesembolso:
+      type: object
+      properties:
+        desembolso:
+          $ref: '#/components/schemas/SalidaDesembolso'
+        detalle:
+          $ref: '#/components/schemas/DetalleDesembolso'
+
+    SalidaDesembolso:
+      type: object
+      description: Variables de salida SIPOC Paso 09. BAW mapea a tw.local.desembolso.*
+      properties:
+        comprobanteTransferencia:
+          type: string
+          description: tw.local.desembolso.comprobanteTransferencia
+          example: "CET-A1B2C3D4E5F6"
+        planPagos:
+          type: string
+          description: tw.local.desembolso.planPagos (estático)
+          example: "PP-BANESCO-CREDICARRO"
+
+    DetalleDesembolso:
+      type: object
+      properties:
+        operacion:
+          type: string
+        timestamp:
+          type: string
+        abonoCliente:
+          $ref: '#/components/schemas/DetalleAbonoCliente'
+        pagoConcesionario:
+          $ref: '#/components/schemas/DetallePagoConcesionario'
+        sistema:
+          type: string
+
+    DetalleAbonoCliente:
+      type: object
+      properties:
+        cuentaDestino:
+          type: string
+        titular:
+          type: string
+        montoAbonadoUsd:
+          type: number
+          format: double
+        descripcion:
+          type: string
+
+    DetallePagoConcesionario:
+      type: object
+      properties:
+        cuentaDebito:
+          type: string
+        concesionario:
+          type: string
+        cuentaCredito:
+          type: string
+        montoTransferidoUsd:
+          type: number
+          format: double
+        descripcion:
+          type: string
+
+    EstadoComprobante:
+      type: object
+      properties:
+        comprobante:
+          type: string
+        tipo:
+          type: string
+        estado:
+          type: string
+        planPagos:
+          type: string
+        timestampConsulta:
+          type: string
+        nota:
+          type: string
+
+    ErrorCamposFaltantes:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "CAMPOS_REQUERIDOS_FALTANTES"
+        mensaje:
+          type: string
+        camposFaltantes:
+          type: array
+          items:
+            type: string
+
+    ErrorPrecondicion:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "PRECONDICION_FALLIDA"
+        mensaje:
+          type: string
+        desembolso:
+          $ref: '#/components/schemas/SalidaFallo'
+
+    ErrorCore:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "CORE_NO_DISPONIBLE"
+        mensaje:
+          type: string
+        desembolso:
+          $ref: '#/components/schemas/SalidaFallo'
+
+    SalidaFallo:
+      type: object
+      properties:
+        comprobanteTransferencia:
+          type: string
+          nullable: true
+          example: null
+        planPagos:
+          type: string
+          nullable: true
+          example: null
+
+    ErrorComprobanteNoEncontrado:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "COMPROBANTE_NO_ENCONTRADO"
+        mensaje:
+          type: string
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "UP"
+        servicio:
+          type: string
+          example: "mock-core-bancario"
+        paso:
+          type: string
+          example: "09 · Desembolso"
+        timestamp:
+          type: string
