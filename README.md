@@ -5,6 +5,15 @@ BAW invoca este servicio desde un único `serviceTask` — **transacción atómi
 
 ---
 
+## URLs
+
+| Ambiente | URL |
+|---|---|
+| **Producción (Vercel)** | `https://mock-core-bancario-baw-paso09.vercel.app` |
+| **Local (desarrollo)** | `http://localhost:3009` |
+
+---
+
 ## Flujo
 
 ```
@@ -20,13 +29,11 @@ Task_08c (formalización) → Task_09_Desembolso → Task_10
 
 ## Endpoints
 
-| Método | Ruta | Descripción |
+| Método | Ruta | URL completa (Vercel) |
 |---|---|---|
-| `POST` | `/api/v1/desembolso/ejecutar` | Transacción atómica de desembolso |
-| `GET` | `/api/v1/desembolso/:comprobante` | Consulta comprobante (auditoría / BAI) |
-| `GET` | `/health` | Healthcheck |
-
-Puerto por defecto: **3009**
+| `POST` | `/api/v1/desembolso/ejecutar` | `https://mock-core-bancario-baw-paso09.vercel.app/api/v1/desembolso/ejecutar` |
+| `GET` | `/api/v1/desembolso/:comprobante` | `https://mock-core-bancario-baw-paso09.vercel.app/api/v1/desembolso/CET-xxxx` |
+| `GET` | `/health` | `https://mock-core-bancario-baw-paso09.vercel.app/health` |
 
 ---
 
