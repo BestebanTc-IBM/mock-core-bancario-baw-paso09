@@ -14,7 +14,9 @@ info:
 
 servers:
   - url: https://mock-core-bancario-baw-paso09.vercel.app
-    description: Servidor Vercel (PoC)
+    description: Vercel (PoC — producción)
+  - url: http://localhost:3009
+    description: Local (desarrollo)
 
 tags:
   - name: desembolso
