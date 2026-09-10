@@ -7,7 +7,7 @@ info:
     BAW invoca este servicio desde un único serviceTask (Task_09_Desembolso)
     que ejecuta las dos operaciones como una transacción atómica.
     Entregable: Comprobante Electrónico de Transferencia + referencia del Plan de Pagos.
-  version: "1.1.0"
+  version: "1.1.1"
   contact:
     name: PoC BOAT Banesco — IBM
     email: ibm-poc@demo.com
@@ -53,7 +53,7 @@ paths:
               credito:
                 montoFinanciable: 18000.00
               cliente:
-                cedulaIdentidad: "V-12345678"
+                cedulaIdentidad: 12345678
                 cuentaCliente: "0134-0001-12-0012345678"
               vehiculo:
                 concesionario: "A"
@@ -208,10 +208,11 @@ components:
       type: object
       required: [cedulaIdentidad, cuentaCliente]
       properties:
+        # CAMBIO v1.1.1: cedulaIdentidad string → integer (solo número, sin prefijo V-)
         cedulaIdentidad:
-          type: string
-          description: CI del titular — tw.local.cliente.cedulaIdentidad
-          example: "V-12345678"
+          type: integer
+          description: Número de cédula del titular (solo dígitos) — tw.local.cliente.cedulaIdentidad
+          example: 12345678
         cuentaCliente:
           type: string
           description: Cuenta bancaria del cliente — tw.local.cliente.cuentaCliente
@@ -300,8 +301,8 @@ components:
           type: string
           example: "0134-0001-12-0012345678"
         titular:
-          type: string
-          example: "V-12345678"
+          type: integer
+          example: 12345678
         montoAbonadoUsd:
           type: number
           format: double
