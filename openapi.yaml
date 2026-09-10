@@ -1,64 +1,34 @@
 openapi: "3.0.3"
 info:
-  title: Core Bancario Mock — Paso 09 Desembolso
-  description: >
-    API Mock que simula el Core bancario IBM i/AS400 para el Paso 09 (Desembolso)
-    del Proceso 1 CrediCarro — PoC BOAT Banesco.
-    BAW invoca este servicio desde un único serviceTask (Task_09_Desembolso)
-    que ejecuta las dos operaciones como una transacción atómica.
-    Entregable: Comprobante Electrónico de Transferencia + referencia del Plan de Pagos.
+  title: Servicio Desembolso Credito REST
+  description: Servicio REST mock del Core Bancario para el Paso 09 Desembolso del proceso CrediCarro. Ejecuta abono en cuenta cliente y debito mas deposito en cuenta concesionario como transaccion atomica.
   version: "1.1.2"
-  contact:
-    name: PoC BOAT Banesco — IBM
-    email: ibm-poc@demo.com
 
 servers:
   - url: https://mock-core-bancario-baw-paso09.vercel.app
-    description: Vercel (PoC — producción)
-  # - url: http://localhost:3009    ← solo para desarrollo local, comentado para compatibilidad BAW
-  #   description: Local (desarrollo)
+    description: Servidor Vercel
+  # - url: http://localhost:3009    comentado para compatibilidad BAW (un solo host)
 
 tags:
   - name: desembolso
-    description: Transacción de desembolso del crédito
+    description: Transaccion de desembolso del credito
 
 paths:
 
   /api/v1/desembolso/ejecutar:
     post:
-      tags: [desembolso]
-      summary: Ejecutar desembolso — transacción atómica
-      description: >
-        Recibe los datos del SIPOC Paso 09 y ejecuta en una sola operación:
-        el abono del crédito en la cuenta del cliente y el débito+depósito
-        en la cuenta del concesionario.
-        Devuelve desembolso.comprobanteTransferencia, desembolso.planPagos
-        y desembolso.timestamp — las variables de salida del SIPOC Paso 09.
-        Valida las guardas de entrada: las tres firmas (cliente, banco,
-        concesionario) y polizas.pagoPolizasOk deben ser true para proceder.
+      tags:
+        - desembolso
+      summary: Ejecutar desembolso transaccion atomica
+      description: Recibe los datos del SIPOC Paso 09 y ejecuta el abono del credito en la cuenta del cliente y el debito mas deposito en la cuenta del concesionario. Devuelve comprobanteTransferencia, planPagos y timestamp. Las tres firmas y pagoPolizasOk deben ser true.
       operationId: ejecutarDesembolso
+      x-codegen-request-body-name: solicitudDesembolso
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/SolicitudDesembolso'
-            example:
-              firmas:
-                firmaClienteOk: true
-                firmaBancoOk: true
-                firmaConcesionarioOk: true
-              polizas:
-                pagoPolizasOk: true
-              credito:
-                montoFinanciable: 18000.00
-              cliente:
-                cedulaIdentidad: 12345678
-                cuentaCliente: "0134-0001-12-0012345678"
-              vehiculo:
-                concesionario: "A"
-              concesionario:
-                cuentaConcesionario: "0105-0002-81-1081234567"
       responses:
         "201":
           description: Desembolso ejecutado. Comprobante, plan de pagos y timestamp generados.
@@ -66,13 +36,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespuestaDesembolso'
-              example:
-                desembolso:
-                  comprobanteTransferencia: "CET-A1B2C3D4E5F6"
-                  planPagos: "PP-BANESCO-CREDICARRO"
-                  timestamp: "2026-09-17T10:15:00.000Z"
-                # detalle: (comentado — se mantiene en el schema como referencia,
-                #   no se incluye en la respuesta activa. Ver DetalleDesembolso.)
         "400":
           description: Campos obligatorios del SIPOC faltantes
           content:
@@ -80,13 +43,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorCamposFaltantes'
         "422":
-          description: Precondición fallida — firmas o pólizas incompletas
+          description: Precondicion fallida firmas o polizas incompletas
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorPrecondicion'
         "503":
-          description: Core temporalmente no disponible (modo demo-fallo)
+          description: Core temporalmente no disponible modo demo-fallo
           content:
             application/json:
               schema:
@@ -94,18 +57,21 @@ paths:
 
   /api/v1/desembolso/{comprobante}:
     get:
-      tags: [desembolso]
+      tags:
+        - desembolso
       summary: Consultar comprobante de desembolso
+      description: Devuelve el estado de un comprobante de transferencia identificado por su numero con prefijo CET-.
       operationId: consultarComprobante
       parameters:
         - name: comprobante
           in: path
           required: true
+          description: Numero de comprobante ej. CET-A1B2C3D4E5F6
           schema:
             type: string
       responses:
         "200":
-          description: Estado del comprobante
+          description: Estado del comprobante consultado
           content:
             application/json:
               schema:
@@ -119,8 +85,9 @@ paths:
 
   /health:
     get:
-      tags: [desembolso]
-      summary: Healthcheck
+      tags:
+        - desembolso
+      summary: Healthcheck del servicio mock
       operationId: healthCheck
       responses:
         "200":
@@ -130,21 +97,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
-# ──────────────────────────────────────────────────────────────
-# SCHEMAS
-# Restricciones BAW:
-#   - Sin allOf / oneOf / anyOf / not
-#   - Sin integer format:int64
-#   - Sin enum
-#   - Nombres de propiedad: identificadores JS válidos (sin guiones)
-# ──────────────────────────────────────────────────────────────
 components:
   schemas:
 
-    # ── Request body ──────────────────────────────────────────
+    # ── Request ──────────────────────────────────────────────
     SolicitudDesembolso:
       type: object
-      required: [firmas, polizas, credito, cliente, vehiculo, concesionario]
+      required:
+        - firmas
+        - polizas
+        - credito
+        - cliente
+        - vehiculo
+        - concesionario
       properties:
         firmas:
           $ref: '#/components/schemas/DatosFirmas'
@@ -159,12 +124,7 @@ components:
         concesionario:
           $ref: '#/components/schemas/DatosConcesionario'
 
-    # CAMBIO v1.1.0: se agregan firmaClienteOk y firmaBancoOk.
-    # Las tres firmas del paso 08 (Formalización) son obligatorias
-    # para que el Paso 09 pueda ejecutarse.
-    #   firmaClienteOk      → tw.local.firmas.firmaClienteOk
-    #   firmaBancoOk        → tw.local.firmas.firmaBancoOk      (auto — sistema)
-    #   firmaConcesionarioOk→ tw.local.firmas.firmaConcesionarioOk
+    # v1.1.0: tres firmas requeridas (firmaClienteOk, firmaBancoOk, firmaConcesionarioOk)
     DatosFirmas:
       type: object
       required:
@@ -174,118 +134,110 @@ components:
       properties:
         firmaClienteOk:
           type: boolean
-          description: Firma del cliente en el contrato (paso 08) — tw.local.firmas.firmaClienteOk
+          description: Firma del cliente en el contrato paso 08 tw.local.firmas.firmaClienteOk
           example: true
         firmaBancoOk:
           type: boolean
-          description: Firma automática del banco (paso 08) — tw.local.firmas.firmaBancoOk
+          description: Firma automatica del banco paso 08 tw.local.firmas.firmaBancoOk
           example: true
         firmaConcesionarioOk:
           type: boolean
-          description: Firma del concesionario en el contrato (paso 08) — tw.local.firmas.firmaConcesionarioOk
+          description: Firma del concesionario en el contrato paso 08 tw.local.firmas.firmaConcesionarioOk
           example: true
 
     DatosPolizas:
       type: object
-      required: [pagoPolizasOk]
+      required:
+        - pagoPolizasOk
       properties:
         pagoPolizasOk:
           type: boolean
-          description: Pólizas emitidas y pagadas en paso 07 — tw.local.polizas.pagoPolizasOk
+          description: Polizas emitidas y pagadas en paso 07 tw.local.polizas.pagoPolizasOk
           example: true
 
     DatosCredito:
       type: object
-      required: [montoFinanciable]
+      required:
+        - montoFinanciable
       properties:
         montoFinanciable:
           type: number
-          format: double
-          description: Monto a desembolsar en USD — tw.local.credito.montoFinanciable
+          format: float
+          description: Monto a desembolsar en USD tw.local.credito.montoFinanciable
           example: 18000.00
 
     DatosCliente:
       type: object
-      required: [cedulaIdentidad, cuentaCliente]
+      required:
+        - cedulaIdentidad
+        - cuentaCliente
       properties:
-        # CAMBIO v1.1.1: cedulaIdentidad string → integer (solo número, sin prefijo V-)
+        # v1.1.1: cedulaIdentidad integer (solo digitos, sin prefijo V-)
         cedulaIdentidad:
           type: integer
-          description: Número de cédula del titular (solo dígitos) — tw.local.cliente.cedulaIdentidad
+          format: int32
+          description: Numero de cedula del titular solo digitos tw.local.cliente.cedulaIdentidad
           example: 12345678
         cuentaCliente:
           type: string
-          description: Cuenta bancaria del cliente — tw.local.cliente.cuentaCliente
+          description: Cuenta bancaria del cliente tw.local.cliente.cuentaCliente
           example: "0134-0001-12-0012345678"
 
     DatosVehiculo:
       type: object
-      required: [concesionario]
+      required:
+        - concesionario
       properties:
         concesionario:
           type: string
-          description: Concesionario seleccionado (A, B o C) — tw.local.vehiculo.concesionario
+          description: Concesionario seleccionado A B o C tw.local.vehiculo.concesionario
           example: "A"
 
     DatosConcesionario:
       type: object
-      required: [cuentaConcesionario]
+      required:
+        - cuentaConcesionario
       properties:
         cuentaConcesionario:
           type: string
-          description: Cuenta destino del concesionario — tw.local.concesionario.cuentaConcesionario
+          description: Cuenta destino del concesionario tw.local.concesionario.cuentaConcesionario
           example: "0105-0002-81-1081234567"
 
     # ── Response 201 ──────────────────────────────────────────
-    # CAMBIO v1.1.0: el objeto 'detalle' se COMENTA (no se elimina).
-    # El campo 'timestamp' sube al objeto principal 'desembolso'
-    # para que BAW pueda mapearlo directamente como
-    # tw.local.desembolso.timestamp sin necesidad de navegar detalle.
+    # v1.1.0: detalle comentado, timestamp subido a SalidaDesembolso
     RespuestaDesembolso:
       type: object
       properties:
         desembolso:
           $ref: '#/components/schemas/SalidaDesembolso'
-        # detalle:                              ← COMENTADO (v1.1.0)
-        #   $ref: '#/components/schemas/DetalleDesembolso'
-        #   El objeto detalle queda desactivado de la respuesta activa.
-        #   Se conserva el schema DetalleDesembolso más abajo como
-        #   referencia para Fase 2 / auditoría / BAI.
 
-    # Variables de salida SIPOC Paso 09 — BAW mapea a tw.local.desembolso.*
-    # CAMBIO v1.1.0: se agrega 'timestamp' (antes vivía dentro de detalle).
     SalidaDesembolso:
       type: object
-      description: >
-        Variables de salida SIPOC Paso 09.
-        BAW mapea a tw.local.desembolso.*
+      description: Variables de salida SIPOC Paso 09. BAW mapea a tw.local.desembolso.*
       properties:
         comprobanteTransferencia:
           type: string
-          description: Comprobante Electrónico de Transferencia — tw.local.desembolso.comprobanteTransferencia
+          description: Comprobante Electronico de Transferencia tw.local.desembolso.comprobanteTransferencia
           example: "CET-A1B2C3D4E5F6"
         planPagos:
           type: string
-          description: Referencia del plan de pagos (estática) — tw.local.desembolso.planPagos
+          description: Referencia del plan de pagos tw.local.desembolso.planPagos
           example: "PP-BANESCO-CREDICARRO"
+        # v1.1.0: timestamp subido desde detalle al objeto principal
         timestamp:
           type: string
-          description: >
-            Fecha y hora ISO-8601 de la transacción en el Core bancario.
-            Antes en detalle.timestamp — subido al objeto principal en v1.1.0
-            para simplificar el mapeo BAW: tw.local.desembolso.timestamp
+          description: Fecha y hora ISO-8601 de la transaccion tw.local.desembolso.timestamp
           example: "2026-09-17T10:15:00.000Z"
 
-    # ── DetalleDesembolso — DESACTIVADO en respuesta activa (v1.1.0) ──────
-    # Conservado como referencia para Fase 2 / auditoría / BAI.
-    # Para reactivarlo: descomentar 'detalle' en RespuestaDesembolso.
+    # ── DetalleDesembolso DESACTIVADO v1.1.0 ─────────────────
+    # Conservado como referencia para Fase 2 / auditoria / BAI.
+    # Para reactivar: agregar detalle en RespuestaDesembolso.
     DetalleDesembolso:
       type: object
       properties:
         operacion:
           type: string
           example: "DESEMBOLSO_CREDITO_CREDICARRO"
-        # timestamp movido a SalidaDesembolso.timestamp en v1.1.0
         abonoCliente:
           $ref: '#/components/schemas/DetalleAbonoCliente'
         pagoConcesionario:
@@ -302,14 +254,15 @@ components:
           example: "0134-0001-12-0012345678"
         titular:
           type: integer
+          format: int32
           example: 12345678
         montoAbonadoUsd:
           type: number
-          format: double
+          format: float
           example: 18000.00
         descripcion:
           type: string
-          example: "Abono crédito Crédi-Carro"
+          example: "Abono credito Credi-Carro"
 
     DetallePagoConcesionario:
       type: object
@@ -325,11 +278,11 @@ components:
           example: "0105-0002-81-1081234567"
         montoTransferidoUsd:
           type: number
-          format: double
+          format: float
           example: 18000.00
         descripcion:
           type: string
-          example: "Pago concesionario A — Crédi-Carro"
+          example: "Pago concesionario A Credi-Carro"
 
     # ── Response GET /comprobante ─────────────────────────────
     EstadoComprobante:
@@ -352,7 +305,7 @@ components:
           example: "2026-09-17T10:30:00.000Z"
         nota:
           type: string
-          example: "Operación registrada por mock — válida solo para PoC."
+          example: "Operacion registrada por mock valida solo para PoC."
 
     # ── Errores ───────────────────────────────────────────────
     ErrorCamposFaltantes:
@@ -368,10 +321,6 @@ components:
           type: array
           items:
             type: string
-          example:
-            - "firmas.firmaClienteOk"
-            - "firmas.firmaBancoOk"
-            - "cliente.cuentaCliente"
 
     ErrorPrecondicion:
       type: object
@@ -381,7 +330,7 @@ components:
           example: "PRECONDICION_FALLIDA"
         mensaje:
           type: string
-          example: "El contrato no está completamente firmado — las tres firmas (cliente, banco, concesionario) deben ser true."
+          example: "El contrato no esta completamente firmado."
         desembolso:
           $ref: '#/components/schemas/SalidaFallo'
 
@@ -393,7 +342,7 @@ components:
           example: "CORE_NO_DISPONIBLE"
         mensaje:
           type: string
-          example: "Core bancario temporalmente fuera de línea (modo demo-fallo)."
+          example: "Core bancario temporalmente fuera de linea modo demo-fallo."
         desembolso:
           $ref: '#/components/schemas/SalidaFallo'
 
@@ -402,16 +351,13 @@ components:
       properties:
         comprobanteTransferencia:
           type: string
-          nullable: true
-          example: null
+          example: ""
         planPagos:
           type: string
-          nullable: true
-          example: null
+          example: ""
         timestamp:
           type: string
-          nullable: true
-          example: null
+          example: ""
 
     ErrorComprobanteNoEncontrado:
       type: object
@@ -421,7 +367,7 @@ components:
           example: "COMPROBANTE_NO_ENCONTRADO"
         mensaje:
           type: string
-          example: "No se encontró el comprobante 'INVALIDO-999' en el registro mock."
+          example: "No se encontro el comprobante en el registro mock."
 
     # ── Healthcheck ───────────────────────────────────────────
     HealthResponse:
@@ -435,7 +381,7 @@ components:
           example: "mock-core-bancario"
         paso:
           type: string
-          example: "09 · Desembolso"
+          example: "09 Desembolso"
         timestamp:
           type: string
           example: "2026-09-17T10:00:00.000Z"
