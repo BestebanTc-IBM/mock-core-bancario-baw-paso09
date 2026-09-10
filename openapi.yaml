@@ -7,7 +7,7 @@ info:
     BAW invoca este servicio desde un único serviceTask (Task_09_Desembolso)
     que ejecuta las dos operaciones como una transacción atómica.
     Entregable: Comprobante Electrónico de Transferencia + referencia del Plan de Pagos.
-  version: "1.1.1"
+  version: "1.1.2"
   contact:
     name: PoC BOAT Banesco — IBM
     email: ibm-poc@demo.com
@@ -15,8 +15,8 @@ info:
 servers:
   - url: https://mock-core-bancario-baw-paso09.vercel.app
     description: Vercel (PoC — producción)
-  - url: http://localhost:3009
-    description: Local (desarrollo)
+  # - url: http://localhost:3009    ← solo para desarrollo local, comentado para compatibilidad BAW
+  #   description: Local (desarrollo)
 
 tags:
   - name: desembolso
